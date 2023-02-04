@@ -7,6 +7,8 @@ import Html.Events exposing (..)
 import Http
 import Json.Decode exposing (Decoder, map2, field, int, string, list)
 import Random
+import Embed.Youtube
+import Embed.Youtube.Attributes
 
 
 -- MAIN
@@ -27,6 +29,7 @@ main =
 type Model
     = Word (Maybe String) 
     | Def (List Definition) String Bool
+    | GaveUp (Maybe String)
 
 type alias Meaning =
     {
@@ -74,6 +77,7 @@ update msg model =
                             case word of
                                 Just str2 -> (Word word, getDefinition str2)
                                 Nothing -> (Word word, Cmd.none)
+            GaveUp _ -> (model, Cmd.none)
             Word Nothing -> (Word Nothing, Cmd.none)
             Def _ _ _ -> (model, Cmd.none)
     GotDef result -> 
@@ -89,14 +93,16 @@ update msg model =
                     case h of
                         Just def -> let found = (inp == def.word) in (Def defList inp found, Cmd.none)
                         Nothing -> (Def defList inp False, Cmd.none)
+            GaveUp _ -> (model, Cmd.none)
     GiveUp ->
         case model of
             Word _ -> (model, Cmd.none)
             Def defList _ _ -> 
                 let h = List.head defList in
                     case h of
-                        Just def -> (Word (Just def.word), Cmd.none)
+                        Just def -> (GaveUp (Just def.word), Cmd.none)
                         Nothing -> (Word Nothing, Cmd.none)
+            GaveUp _ -> (model, Cmd.none)
 
 -- SUBSCRIPTIONS
 
@@ -118,9 +124,16 @@ renderMainPage : Model -> List (Html Msg)
 renderMainPage model =
     h1 [style "margin-left" "30px" ] [ text "el-Memorandum" ] ::
     ( case model of
-        Word (Just str) -> h1 [] [ text str ] :: []
-        Word Nothing -> h1 [] [ text "Err!" ] :: []
-        Def defList inp found -> 
+        Word _ -> []
+        GaveUp (Just str) -> div [ style "margin-left" "50px" ] [ Embed.Youtube.fromString "dQw4w9WgXcQ"
+                |> Embed.Youtube.attributes
+                    [ Embed.Youtube.Attributes.width 640
+                    , Embed.Youtube.Attributes.height 400
+                    , Embed.Youtube.Attributes.autoplay 
+                    ]
+                |> Embed.Youtube.toHtml ] :: h1 [style "margin-left" "50px"] [ text ("The word was '" ++ str ++ "'") ] :: []
+        GaveUp Nothing -> h1 [] [ text "Err!" ] :: []
+        Def defList inp found ->
             if found == True
             then renderDefList defList :: h2 [ style "margin-left" "50px" ] [ text "Bravo!" ] :: input [ style "margin-left" "50px", style "margin-bottom" "50px", placeholder "Your guess", value inp, onInput Type ] [] :: []
             else renderDefList defList :: h2 [ style "margin-left" "50px" ] [ text "Type your guess" ] :: input [ style "margin-left" "50px", style "margin-bottom" "50px", placeholder "Your guess", value inp, onInput Type ] [] :: button [ onClick GiveUp ] [ text "Give Up" ] :: []
